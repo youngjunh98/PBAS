@@ -1,0 +1,11 @@
+{
+  "name": "com.youngjunhong.pbas",
+  "version": "1.0.0",
+  "displayName": "Property Based Action System",
+  "description": "This is an property based action package",
+  "unity": "2019.1",
+  "author": {
+    "name": "Young Jun Hong",
+    "email": "youngjunh98@gmail.com"
+  }
+}

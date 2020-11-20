@@ -1,0 +1,16 @@
+{
+    "name": "youngjunhong.pbas.Editor.Tests",
+    "references": [
+        "GUID:81bd668a8ecad7a4ca3b0f39671ac6b3",
+        "GUID:4750120f05df65d44ae647202cb0a1eb"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
