@@ -57,13 +57,55 @@ namespace PBAS
         [SerializeField]
         private PropertyDataDictionary m_propertyData;
 
+        private Action m_currentAction;
+        private Dictionary<string, PBASActor> m_currentActionParams;
         private PBASAnimator m_animator;
+        private PropertyDataDictionary m_initialPropertyData;
 
+        public Action CurrentAction { get => m_currentAction; }
+        public Dictionary<string, PBASActor> CurrentActionParameters { get => m_currentActionParams; }
+        public bool IsExecutingAction { get => m_currentAction != null; }
         public PropertyDataDictionary PropertyDataDict { get => m_propertyData; }
+        public List<Property> Properties
+        {
+            get
+            {
+                var properties = new List<Property> ();
+
+                foreach (var data in PropertyDataDict)
+                {
+                    properties.Add (data.Value.Property);
+                }
+
+                return properties;
+            }
+        }
 
         private void Awake ()
         {
+            m_currentAction = null;
+            m_currentActionParams = null;
             m_animator = GetComponent<PBASAnimator> ();
+
+            m_initialPropertyData = new PropertyDataDictionary ();
+            foreach (var nameDataPair in m_propertyData)
+            {
+                m_initialPropertyData.Add (nameDataPair.Key, nameDataPair.Value);
+            }
+        }
+
+        public void ResetProperty ()
+        {
+            m_propertyData.Clear ();
+            foreach (var nameDataPair in m_initialPropertyData)
+            {
+                m_propertyData.Add (nameDataPair.Key, nameDataPair.Value);
+
+                foreach (var field in m_propertyData[nameDataPair.Key].Property.FieldList)
+                {
+                    m_propertyData[nameDataPair.Key].SetFieldValue (field.Name, field.DefaultValue);
+                }
+            }
         }
 
         public void AddProperty (Property property)
@@ -87,11 +129,11 @@ namespace PBAS
             }
         }
 
-        public bool CheckProperty (List<Property> checkList)
+        public bool CheckProperty (List<Property> checkList, bool bCheckRequired)
         {
             foreach (Property property in checkList)
             {
-                if (m_propertyData.ContainsKey (property.name) == false)
+                if (m_propertyData.ContainsKey (property.name) == !bCheckRequired)
                 {
                     return false;
                 }
@@ -106,17 +148,13 @@ namespace PBAS
 
             foreach (var target in FindObjectsOfType<PBASActor> ())
             {
-                if (target.CheckProperty (requiredProperties) == false)
+                if (target.enabled && target.gameObject.activeSelf)
                 {
-                    continue;
+                    if (target.CheckProperty (requiredProperties, true) && target.CheckProperty (forbiddenProperties, false))
+                    {
+                        found.Add (target);
+                    }
                 }
-
-                if (target.CheckProperty (forbiddenProperties))
-                {
-                    continue;
-                }
-
-                found.Add (target);
             }
 
             return found;
@@ -249,8 +287,9 @@ namespace PBAS
             }
         }
 
-        public bool ExecuteAction (Action action)
+        public bool CheckEnvironment (Action action, out Dictionary<string, PBASActor> parameters)
         {
+            parameters = new Dictionary<string, PBASActor> ();
             Dictionary<string, List<PBASActor>> possibleParams;
 
             if (FindPossibleActionParameters (action, out possibleParams) == false)
@@ -258,15 +297,32 @@ namespace PBAS
                 return false;
             }
 
-            Dictionary<string, PBASActor> parameters = GetActionParameters (action, possibleParams);
+            parameters = GetActionParameters (action, possibleParams);
 
             if (CheckPrecondition (action, parameters) == false)
             {
                 return false;
             }
 
-            // After action is finished
-            ExecuteEffect (action, parameters);
+            return true;
+        }
+
+        public bool ExecuteAction (Action action)
+        {
+            Dictionary<string, PBASActor> parameters;
+
+            if (CheckEnvironment (action, out parameters) == false)
+            {
+                return false;
+            }
+
+            if (Vector3.Distance (parameters["Target"].transform.position, transform.position) > 1.0f)
+            {
+                return false;
+            }
+
+            m_currentAction = action;
+            m_currentActionParams = parameters;
 
             if (m_animator)
             {
@@ -274,6 +330,14 @@ namespace PBAS
             }
 
             return true;
+        }
+
+        public void FinishAction (bool bAnimationPlayed)
+        {
+            ExecuteEffect (m_currentAction, m_currentActionParams);
+
+            m_currentAction = null;
+            m_currentActionParams = null;
         }
     }
 }

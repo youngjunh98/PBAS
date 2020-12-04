@@ -88,6 +88,11 @@ namespace PBAS
         [SerializeField]
         private AnimationCommandDictionary m_commandDict = new AnimationCommandDictionary ();
 
+        private PBASActor m_actor;
+        private int m_currentStateHash;
+        private bool m_bRegisterListener;
+        private StateEventDispatcher m_stateEventDispatcher;
+
         private Animator Animator
         {
             get;
@@ -102,6 +107,29 @@ namespace PBAS
         private void Awake ()
         {
             Animator = GetComponent<Animator> ();
+
+            m_actor = GetComponent<PBASActor> ();
+            m_stateEventDispatcher = Animator.GetBehaviour<StateEventDispatcher> ();
+        }
+
+        private void LateUpdate ()
+        {
+            int nextStateHash = Animator.GetNextAnimatorStateInfo (0).shortNameHash;
+
+            if (m_bRegisterListener)
+            {
+                if (m_currentStateHash != nextStateHash)
+                {
+                    m_currentStateHash = nextStateHash;
+                    m_stateEventDispatcher.AddListener (m_currentStateHash, StateEventName.Exit, FinishActionAnimation);
+                }
+                else
+                {
+                    m_actor.FinishAction (false);
+                }
+
+                m_bRegisterListener = false;
+            }
         }
 
         public void PlayActionAnimation (Action action)
@@ -146,6 +174,15 @@ namespace PBAS
                     }
                 }
             }
+
+            m_currentStateHash = Animator.GetCurrentAnimatorStateInfo (0).shortNameHash;
+            m_bRegisterListener = true;
         }
+
+        private void FinishActionAnimation (AnimatorStateInfo stateInfo, int layerIndex)
+        {
+            m_stateEventDispatcher.RemoveListener (m_currentStateHash, StateEventName.Exit, FinishActionAnimation);
+            m_actor.FinishAction (true);
+        }    
     }
 }
